@@ -6,37 +6,53 @@ import {
   ExternalLink, 
   Newspaper, 
   OctagonAlert, 
-  Menu, 
-  X, 
   ChevronLeft, 
   ChevronRight,
-  Globe
+  Globe,
+  Menu,
+  X
 } from 'lucide-react';
 
 function App() {
-  // --- STATE MANAGEMENT ---
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('general');
   const [page, setPage] = useState(1);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 915);
 
-  // Configuration
+  // Ensure VITE_NEWS_API_KEY is set in Vercel Environment Variables
   const API_KEY = import.meta.env.VITE_NEWS_API_KEY;
   const categories = ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health'];
 
-  // --- API FETCH LOGIC ---
+  // Handle window resize to check if screen size is 915px or less
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 915);
+      // Auto-close menu when resizing above 915px
+      if (window.innerWidth > 915) {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const fetchNews = async () => {
+    if (!API_KEY) return;
+
     setLoading(true);
     try {
+      // PRO TIP: We use /api/news/ to trigger the vercel.json rewrite 
+      // This solves the CORS issue on your live site
       const url = query 
-        ? `https://gnews.io/api/v4/search?q=${query}&page=${page}&max=12&lang=en&apikey=${API_KEY}`
-        : `https://gnews.io/api/v4/top-headlines?category=${category}&lang=en&max=12&apikey=${API_KEY}`;
+        ? `/api/news/search?q=${query}&page=${page}&max=12&lang=en&apikey=${API_KEY}`
+        : `/api/news/top-headlines?category=${category}&lang=en&max=12&apikey=${API_KEY}`;
       
       const response = await axios.get(url);
       setArticles(response.data.articles || []);
-      
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       console.error("Fetch Error:", error);
@@ -53,201 +69,185 @@ function App() {
     if (!query.trim()) return;
     setPage(1);
     fetchNews();
-    setIsMenuOpen(false);
+  };
+
+  const handleCategorySelect = (cat) => {
+    setCategory(cat);
+    setQuery('');
+    setPage(1);
+    setMenuOpen(false); // Close menu after selection on mobile
   };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Custom breakpoint at 915px */
+        @media (min-width: 916px) {
+          .desktop-nav { display: flex !important; }
+          .mobile-menu-btn { display: none !important; }
+          .mobile-menu-dropdown { display: none !important; }
+        }
+        
+        @media (max-width: 915px) {
+          .desktop-nav { display: none !important; }
+          .mobile-menu-btn { display: block !important; }
+        }
+      `}</style>
       
-      {/* --- PROFESSIONAL DOUBLE-DECKER NAVBAR --- */}
-      <header className="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4">
-          
-          {/* TOP DECK: Brand & Search */}
-          <div className="flex items-center justify-between h-20 gap-8">
-            
-            {/* UPGRADED LOGO CONTAINER */}
+      <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200">
+        <div className="max-w-7xl mx-auto">
+          {/* TOP DECK: Branding, Search & Menu Toggle */}
+          <div className="flex items-center justify-between px-4 h-14 md:h-16 gap-4">
             <div 
-              className="relative group cursor-pointer flex items-center gap-3"
-              onClick={() => {setQuery(''); setCategory('general'); setPage(1);}}
+              className="flex items-center gap-2 shrink-0 cursor-pointer group" 
+              onClick={() => {setQuery(''); setCategory('general'); setPage(1); setMenuOpen(false);}}
             >
-              <div className="relative bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-2xl text-white shadow-lg shadow-blue-100 group-hover:shadow-blue-300 group-hover:-rotate-3 group-hover:scale-105 transition-all duration-300">
-                <Newspaper size={24} strokeWidth={2.5} />
-                <div className="absolute top-0 left-0 w-full h-full bg-white/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-1.5 md:p-2 rounded-xl text-white shadow-md group-hover:scale-105 transition-transform">
+                <Newspaper size={18} className="md:w-5 md:h-5" strokeWidth={2.5} />
               </div>
               <div className="flex flex-col text-left">
-                <h1 className="text-xl font-black tracking-tighter leading-none text-slate-900 uppercase">
+                <h1 className="text-base md:text-xl font-black tracking-tighter leading-none text-slate-900 uppercase">
                   Daily<span className="text-blue-600">Pulse</span>
                 </h1>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] leading-none mt-1.5">
+                <span className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] leading-none mt-1">
                   By Abdalsalam
                 </span>
               </div>
             </div>
 
-            {/* Desktop Search */}
-            <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 max-w-md relative group">
+            <form onSubmit={handleSearchSubmit} className="flex-1 max-w-[140px] xs:max-w-[200px] md:max-w-md relative group">
               <input 
                 type="text" 
-                placeholder="Search global stories..." 
-                className="w-full bg-slate-100 border-2 border-transparent rounded-2xl py-2.5 pl-11 pr-4 focus:ring-0 focus:border-blue-500/30 focus:bg-white transition-all text-sm outline-none shadow-inner"
+                placeholder="Search..." 
+                className="w-full bg-slate-100 border-none rounded-xl py-1.5 md:py-2 pl-8 md:pl-10 pr-3 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-xs md:text-sm outline-none"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <Search className="absolute left-4 top-3 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
+              <Search className="absolute left-2.5 md:left-3.5 top-2 md:top-2.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={14} />
             </form>
 
-            {/* Mobile Menu Button */}
+            {/* Mobile Menu Toggle Button - Only shows on 915px or less */}
             <button 
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="mobile-menu-btn hidden p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Toggle menu"
             >
-              {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
 
-          {/* BOTTOM DECK: Desktop Category Navigation */}
-          <nav className="hidden lg:flex items-center gap-2 h-12 border-t border-slate-100/60">
-            {categories.map((cat) => (
-              <button 
-                key={cat}
-                onClick={() => {setCategory(cat); setQuery(''); setPage(1);}}
-                className={`px-4 h-full text-[11px] font-bold uppercase tracking-widest transition-all relative group
-                  ${category === cat && !query ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
-              >
-                {cat}
-                {category === cat && !query ? (
-                  <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-blue-600 rounded-t-full shadow-[0_-2px_8px_rgba(37,99,235,0.4)]" />
-                ) : (
-                  <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-slate-300 rounded-t-full group-hover:left-4 group-hover:right-4 group-hover:w-auto transition-all duration-300" />
-                )}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* --- COMPACT MOBILE DRAWER --- */}
-        {isMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-slate-100 shadow-2xl absolute w-full left-0 animate-in slide-in-from-top-2 duration-300 max-h-[75vh] overflow-y-auto">
-            <div className="p-4 space-y-4">
-              <form onSubmit={handleSearchSubmit} className="relative">
-                <input 
-                  type="text" 
-                  placeholder="Search news..." 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 text-sm outline-none"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
-              </form>
-              <div className="grid grid-cols-2 gap-2 pb-4">
-                {categories.map((cat) => (
-                  <button 
-                    key={cat}
-                    onClick={() => {setCategory(cat); setQuery(''); setPage(1); setIsMenuOpen(false);}}
-                    className={`px-3 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest text-center transition-all border
-                      ${category === cat && !query ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-100' : 'bg-white text-slate-600 border-slate-100'}`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+          {/* Desktop Category Navigation - Hidden on 915px or less */}
+          <nav className="desktop-nav hidden items-center border-t border-slate-100 px-2 overflow-x-auto no-scrollbar scroll-smooth h-12 bg-white">
+            <div className="flex items-center gap-1 min-w-max">
+              {categories.map((cat) => (
+                <button 
+                  key={cat}
+                  onClick={() => {setCategory(cat); setQuery(''); setPage(1);}}
+                  className={`px-6 h-10 text-[11px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap
+                    ${category === cat && !query ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
+                >
+                  {cat}
+                  {category === cat && !query && (
+                    <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-blue-600 rounded-t-full" />
+                  )}
+                </button>
+              ))}
             </div>
-          </div>
-        )}
+          </nav>
+
+          {/* Mobile Menu Dropdown - Only shows when menuOpen is true AND screen is 915px or less */}
+          {menuOpen && isMobile && (
+            <div className="mobile-menu-dropdown border-t border-slate-100 bg-white shadow-lg">
+              <nav className="px-4 py-3">
+                <div className="grid grid-cols-2 gap-1">
+                  {categories.map((cat) => (
+                    <button 
+                      key={cat}
+                      onClick={() => handleCategorySelect(cat)}
+                      className={`px-3 py-2.5 text-xs font-bold uppercase tracking-widest transition-all rounded-lg text-center
+                        ${category === cat && !query 
+                          ? 'bg-blue-50 text-blue-600' 
+                          : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </nav>
+            </div>
+          )}
+        </div>
       </header>
 
-      {/* --- MAIN FEED --- */}
-      <main className="max-w-7xl mx-auto px-4 py-8 pb-20">
+      <main className="max-w-7xl mx-auto px-4 py-6 md:py-10 pb-20">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="animate-pulse bg-white border border-slate-100 rounded-3xl p-4 h-[400px]">
-                <div className="bg-slate-200 w-full h-48 rounded-2xl mb-4" />
+              <div key={i} className="animate-pulse bg-white border border-slate-100 rounded-3xl p-4 h-[350px]">
+                <div className="bg-slate-200 w-full h-40 rounded-2xl mb-4" />
                 <div className="bg-slate-200 w-3/4 h-6 rounded-md mb-2" />
                 <div className="bg-slate-200 w-full h-20 rounded-md" />
               </div>
             ))}
           </div>
         ) : articles.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 text-left">
             {articles.map((article, index) => (
-              <article key={index} className="group bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex flex-col">
+              <article key={index} className="group bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col">
                 <div className="relative aspect-[16/10] overflow-hidden bg-slate-200">
                   <img 
-                    src={article.image || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800'} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                    src={article.image || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800'}
+                    onError={(e) => {
+                      e.target.src = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800';
+                      e.target.onerror = null; // Prevents infinite loop if fallback also fails
+                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                     alt={article.title}
                   />
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tighter text-blue-600 shadow-sm">
+                  <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg text-[9px] font-black uppercase text-blue-600">
                     {article.source.name}
                   </div>
                 </div>
-
-                <div className="p-6 flex flex-col flex-grow">
-                  <div className="flex items-center gap-2 text-slate-400 text-xs font-medium mb-4 uppercase tracking-widest">
-                    <Calendar size={14} className="text-blue-500" />
+                <div className="p-5 md:p-6 flex flex-col flex-grow">
+                  <div className="flex items-center gap-2 text-slate-400 text-[10px] font-medium mb-3 uppercase tracking-widest">
+                    <Calendar size={12} className="text-blue-500" />
                     {article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : 'Recent'}
                   </div>
-                  <h2 className="text-xl font-bold text-slate-900 mb-4 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
+                  <h2 className="text-lg font-bold text-slate-900 mb-3 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
                     {article.title}
                   </h2>
-                  <p className="text-slate-500 text-sm line-clamp-3 mb-8 leading-relaxed">
+                  <p className="text-slate-500 text-xs md:text-sm line-clamp-3 mb-6 leading-relaxed">
                     {article.description}
                   </p>
-                  <a 
-                    href={article.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="mt-auto flex items-center justify-center gap-2 w-full py-3.5 bg-slate-900 text-white font-bold text-xs rounded-2xl hover:bg-blue-600 hover:shadow-lg transition-all shadow-md"
-                  >
-                    READ ARTICLE <ExternalLink size={14} />
+                  <a href={article.url} target="_blank" rel="noopener noreferrer" className="mt-auto flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white font-bold text-[10px] rounded-xl hover:bg-blue-600 transition-all shadow-sm">
+                    READ ARTICLE <ExternalLink size={12} />
                   </a>
                 </div>
               </article>
             ))}
           </div>
         ) : (
-          <div className="text-center py-24 bg-white rounded-[40px] border border-dashed border-slate-200">
-            <OctagonAlert className="mx-auto text-slate-200 mb-6" size={80} />
-            <h3 className="text-2xl font-black text-slate-900 mb-2">No results found</h3>
-            <button onClick={() => {setQuery(''); setCategory('general'); setPage(1);}}
-              className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
-              Reset Filters
-            </button>
-          </div>
-        )}
-
-        {/* --- PAGINATION --- */}
-        {articles.length > 0 && (
-          <div className="mt-20 flex items-center justify-center gap-4">
-            <button disabled={page === 1} onClick={() => setPage(page - 1)}
-              className="p-4 rounded-2xl bg-white border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition-all text-slate-900 shadow-sm">
-              <ChevronLeft size={24} />
-            </button>
-            <div className="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-bold text-slate-900 shadow-sm">
-              Page {page}
-            </div>
-            <button onClick={() => setPage(page + 1)} className="p-4 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 transition-all text-slate-900 shadow-sm">
-              <ChevronRight size={24} />
-            </button>
+          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+            <OctagonAlert className="mx-auto text-slate-200 mb-4" size={60} />
+            <h3 className="text-xl font-bold text-slate-900 mb-2">No News Available</h3>
+            <p className="text-slate-500 text-sm mb-6">Make sure your API key is correctly set in Vercel's Environment Variables.</p>
+            <button onClick={() => {setQuery(''); setCategory('general'); setPage(1);}} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all">Reset Filters</button>
           </div>
         )}
       </main>
 
-      {/* --- FOOTER --- */}
-      <footer className="border-t border-slate-200 py-12 bg-white text-center">
-        <div className="flex justify-center items-center gap-2 mb-4">
-          <Globe className="text-blue-600" size={22} />
-          <span className="font-black text-xl tracking-tighter uppercase italic text-slate-900">
+      <footer className="border-t border-slate-200 py-10 bg-white text-center">
+        <div className="flex justify-center items-center gap-2 mb-3">
+          <Globe className="text-blue-600" size={18} />
+          <span className="font-black text-lg tracking-tighter uppercase italic text-slate-900">
             DailyPulse <span className="text-slate-400 font-light mr-1">by</span> Abdalsalam
           </span>
         </div>
-        <p className="text-slate-400 text-sm font-medium tracking-wide">
-          © 2026 | Powered by GNews API
-        </p>
+        <p className="text-slate-400 text-[10px] font-medium tracking-wide uppercase">© 2026 | Powered by GNews API</p>
       </footer>
-
     </div>
   );
 }
