@@ -33,15 +33,17 @@ function App() {
   }, []);
 
   const fetchNews = async () => {
-    if (!API_KEY) return;
+    if (!API_KEY) {
+      console.warn("VITE_NEWS_API_KEY is missing from environment variables.");
+      return;
+    }
 
     setLoading(true);
     try {
       /**
-       * FIX: DYNAMIC BASE URL
-       * On Localhost: We call GNews directly to avoid local proxy timeouts.
-       * On Deployed Site: We use '/api/news' to trigger the vercel.json rewrite 
-       * to bypass the GNews Free Tier CORS block.
+       * On Localhost: Call GNews directly to avoid local dev proxy timeouts.
+       * On Deployed Site: Use the '/api/news' rewrite defined in vercel.json 
+       * to bypass GNews Free Plan CORS restrictions.
        */
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const BASE_URL = isLocal ? 'https://gnews.io/api/v4' : '/api/news';
@@ -62,7 +64,9 @@ function App() {
       setArticles(response.data.articles || []);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
-      console.error("Fetch Error:", error.response?.data || error.message);
+      // Logs detailed error messages (like 'Daily limit reached') to the console
+      console.error("News Fetch Error:", error.response?.data || error.message);
+      setArticles([]);
     } finally {
       setLoading(false);
     }
@@ -228,7 +232,7 @@ function App() {
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
             <OctagonAlert className="mx-auto text-slate-200 mb-4" size={60} />
             <h3 className="text-xl font-bold text-slate-900 mb-2">No News Available</h3>
-            <p className="text-slate-500 text-sm mb-6">Check your network or API settings.</p>
+            <p className="text-slate-500 text-sm mb-6">Check your API daily limit or environment variables.</p>
             <button onClick={() => {setQuery(''); setCategory('general'); setPage(1);}} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all">Reset Filters</button>
           </div>
         )}
