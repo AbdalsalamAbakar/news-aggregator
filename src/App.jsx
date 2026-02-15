@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { 
   Search, 
@@ -23,6 +23,7 @@ function App() {
   const API_KEY = import.meta.env.VITE_NEWS_API_KEY;
   const categories = ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health'];
 
+  // Handle mobile menu responsiveness
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 915);
@@ -32,28 +33,30 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const fetchNews = async () => {
+  /**
+   * IMPROVED FETCH LOGIC
+   * 1. Uses a manual trigger to save API requests.
+   * 2. Checks if we are on localhost vs deployed site for CORS.
+   */
+  const fetchNews = useCallback(async (searchQuery = '') => {
     if (!API_KEY) {
-      console.warn("VITE_NEWS_API_KEY is missing from environment variables.");
+      console.warn("API Key missing.");
       return;
     }
 
     setLoading(true);
     try {
-      /**
-       * On Localhost: Call GNews directly to avoid local dev proxy timeouts.
-       * On Deployed Site: Use the '/api/news' rewrite defined in vercel.json 
-       * to bypass GNews Free Plan CORS restrictions.
-       */
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const BASE_URL = isLocal ? 'https://gnews.io/api/v4' : '/api/news';
       
-      const endpoint = query ? '/search' : '/top-headlines';
+      // If we have a searchQuery string, use /search. Otherwise use /top-headlines
+      const effectiveQuery = searchQuery || query;
+      const endpoint = effectiveQuery.trim() ? '/search' : '/top-headlines';
       
       const response = await axios.get(`${BASE_URL}${endpoint}`, {
         params: {
-          q: query || undefined,
-          category: query ? undefined : category,
+          q: effectiveQuery.trim() || undefined,
+          category: effectiveQuery.trim() ? undefined : category,
           lang: 'en',
           max: 12,
           page: page,
@@ -64,28 +67,30 @@ function App() {
       setArticles(response.data.articles || []);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
-      // Logs detailed error messages (like 'Daily limit reached') to the console
-      console.error("News Fetch Error:", error.response?.data || error.message);
+      console.error("Fetch Error Details:", error.response?.data?.errors || error.message);
+      if (error.response?.status === 403) {
+        console.error("LIMIT REACHED: You have used your 100 daily requests.");
+      }
       setArticles([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [category, page, API_KEY]); // Dependencies for stable reference
 
+  // Only auto-fetch when category or page changes (not while typing)
   useEffect(() => {
     fetchNews();
-  }, [category, page]);
+  }, [category, page, fetchNews]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (!query.trim()) return;
     setPage(1);
-    fetchNews();
+    fetchNews(query); // Manually trigger search only on Enter/Submit
   };
 
   const handleCategorySelect = (cat) => {
     setCategory(cat);
-    setQuery('');
+    setQuery(''); // Clear search when switching categories
     setPage(1);
     setMenuOpen(false);
   };
@@ -129,7 +134,7 @@ function App() {
             <form onSubmit={handleSearchSubmit} className="flex-1 max-w-[140px] xs:max-w-[200px] md:max-w-md relative group">
               <input 
                 type="text" 
-                placeholder="Search..." 
+                placeholder="Press Enter to search..." 
                 className="w-full bg-slate-100 border-none rounded-xl py-1.5 md:py-2 pl-8 md:pl-10 pr-3 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-xs md:text-sm outline-none"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
