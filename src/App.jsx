@@ -20,11 +20,9 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 915);
 
-  // Environment variable for security
   const API_KEY = import.meta.env.VITE_NEWS_API_KEY;
   const categories = ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health'];
 
-  // Handle mobile menu responsiveness
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 915);
@@ -34,17 +32,20 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch News Logic
   const fetchNews = async () => {
-    if (!API_KEY) {
-      console.error("API Key is missing! Ensure VITE_NEWS_API_KEY is in your .env file.");
-      return;
-    }
+    if (!API_KEY) return;
 
     setLoading(true);
     try {
-      // Using direct GNews URL to bypass Vite Proxy connection timeouts
-      const BASE_URL = 'https://gnews.io/api/v4';
+      /**
+       * FIX: DYNAMIC BASE URL
+       * On Localhost: We call GNews directly to avoid local proxy timeouts.
+       * On Deployed Site: We use '/api/news' to trigger the vercel.json rewrite 
+       * to bypass the GNews Free Tier CORS block.
+       */
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const BASE_URL = isLocal ? 'https://gnews.io/api/v4' : '/api/news';
+      
       const endpoint = query ? '/search' : '/top-headlines';
       
       const response = await axios.get(`${BASE_URL}${endpoint}`, {
@@ -67,7 +68,6 @@ function App() {
     }
   };
 
-  // Re-fetch when category or page changes
   useEffect(() => {
     fetchNews();
   }, [category, page]);
@@ -193,13 +193,11 @@ function App() {
             {articles.map((article, index) => (
               <article key={index} className="group bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col">
                 <div className="relative aspect-[16/10] overflow-hidden bg-slate-200">
-                  {/* Updated Image Logic with Safety Fallback */}
                   <img 
                     src={article.image || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800'}
                     onError={(e) => {
-                      // If the news source blocks the image, use this reliable Unsplash image instead
                       e.target.src = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800';
-                      e.target.onerror = null; // Prevent infinite loop
+                      e.target.onerror = null;
                     }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                     alt={article.title}
@@ -230,7 +228,7 @@ function App() {
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
             <OctagonAlert className="mx-auto text-slate-200 mb-4" size={60} />
             <h3 className="text-xl font-bold text-slate-900 mb-2">No News Available</h3>
-            <p className="text-slate-500 text-sm mb-6">Make sure your API key is correctly set.</p>
+            <p className="text-slate-500 text-sm mb-6">Check your network or API settings.</p>
             <button onClick={() => {setQuery(''); setCategory('general'); setPage(1);}} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all">Reset Filters</button>
           </div>
         )}
