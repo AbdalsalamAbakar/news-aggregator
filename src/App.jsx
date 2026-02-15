@@ -6,8 +6,6 @@ import {
   ExternalLink, 
   Newspaper, 
   OctagonAlert, 
-  ChevronLeft, 
-  ChevronRight,
   Globe,
   Menu,
   X
@@ -22,44 +20,54 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 915);
 
-  // Ensure VITE_NEWS_API_KEY is set in Vercel Environment Variables
+  // Environment variable for security
   const API_KEY = import.meta.env.VITE_NEWS_API_KEY;
   const categories = ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health'];
 
-  // Handle window resize to check if screen size is 915px or less
+  // Handle mobile menu responsiveness
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 915);
-      // Auto-close menu when resizing above 915px
-      if (window.innerWidth > 915) {
-        setMenuOpen(false);
-      }
+      if (window.innerWidth > 915) setMenuOpen(false);
     };
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Fetch News Logic
   const fetchNews = async () => {
-    if (!API_KEY) return;
+    if (!API_KEY) {
+      console.error("API Key is missing! Ensure VITE_NEWS_API_KEY is in your .env file.");
+      return;
+    }
 
     setLoading(true);
     try {
-      // PRO TIP: We use /api/news/ to trigger the vercel.json rewrite 
-      // This solves the CORS issue on your live site
-      const url = query 
-        ? `/api/news/search?q=${query}&page=${page}&max=12&lang=en&apikey=${API_KEY}`
-        : `/api/news/top-headlines?category=${category}&lang=en&max=12&apikey=${API_KEY}`;
+      // Using direct GNews URL to bypass Vite Proxy connection timeouts
+      const BASE_URL = 'https://gnews.io/api/v4';
+      const endpoint = query ? '/search' : '/top-headlines';
       
-      const response = await axios.get(url);
+      const response = await axios.get(`${BASE_URL}${endpoint}`, {
+        params: {
+          q: query || undefined,
+          category: query ? undefined : category,
+          lang: 'en',
+          max: 12,
+          page: page,
+          apikey: API_KEY
+        }
+      });
+
       setArticles(response.data.articles || []);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
-      console.error("Fetch Error:", error);
+      console.error("Fetch Error:", error.response?.data || error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
+  // Re-fetch when category or page changes
   useEffect(() => {
     fetchNews();
   }, [category, page]);
@@ -75,7 +83,7 @@ function App() {
     setCategory(cat);
     setQuery('');
     setPage(1);
-    setMenuOpen(false); // Close menu after selection on mobile
+    setMenuOpen(false);
   };
 
   return (
@@ -83,14 +91,11 @@ function App() {
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* Custom breakpoint at 915px */
         @media (min-width: 916px) {
           .desktop-nav { display: flex !important; }
           .mobile-menu-btn { display: none !important; }
           .mobile-menu-dropdown { display: none !important; }
         }
-        
         @media (max-width: 915px) {
           .desktop-nav { display: none !important; }
           .mobile-menu-btn { display: block !important; }
@@ -99,7 +104,6 @@ function App() {
       
       <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto">
-          {/* TOP DECK: Branding, Search & Menu Toggle */}
           <div className="flex items-center justify-between px-4 h-14 md:h-16 gap-4">
             <div 
               className="flex items-center gap-2 shrink-0 cursor-pointer group" 
@@ -129,23 +133,17 @@ function App() {
               <Search className="absolute left-2.5 md:left-3.5 top-2 md:top-2.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={14} />
             </form>
 
-            {/* Mobile Menu Toggle Button - Only shows on 915px or less */}
-            <button 
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="mobile-menu-btn hidden p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              aria-label="Toggle menu"
-            >
+            <button onClick={() => setMenuOpen(!menuOpen)} className="mobile-menu-btn hidden p-2 hover:bg-slate-100 rounded-lg transition-colors">
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
 
-          {/* Desktop Category Navigation - Hidden on 915px or less */}
           <nav className="desktop-nav hidden items-center border-t border-slate-100 px-2 overflow-x-auto no-scrollbar scroll-smooth h-12 bg-white">
             <div className="flex items-center gap-1 min-w-max">
               {categories.map((cat) => (
                 <button 
                   key={cat}
-                  onClick={() => {setCategory(cat); setQuery(''); setPage(1);}}
+                  onClick={() => handleCategorySelect(cat)}
                   className={`px-6 h-10 text-[11px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap
                     ${category === cat && !query ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
                 >
@@ -158,7 +156,6 @@ function App() {
             </div>
           </nav>
 
-          {/* Mobile Menu Dropdown - Only shows when menuOpen is true AND screen is 915px or less */}
           {menuOpen && isMobile && (
             <div className="mobile-menu-dropdown border-t border-slate-100 bg-white shadow-lg">
               <nav className="px-4 py-3">
@@ -168,9 +165,7 @@ function App() {
                       key={cat}
                       onClick={() => handleCategorySelect(cat)}
                       className={`px-3 py-2.5 text-xs font-bold uppercase tracking-widest transition-all rounded-lg text-center
-                        ${category === cat && !query 
-                          ? 'bg-blue-50 text-blue-600' 
-                          : 'text-slate-600 hover:bg-slate-50'}`}
+                        ${category === cat && !query ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                       {cat}
                     </button>
@@ -198,11 +193,13 @@ function App() {
             {articles.map((article, index) => (
               <article key={index} className="group bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col">
                 <div className="relative aspect-[16/10] overflow-hidden bg-slate-200">
+                  {/* Updated Image Logic with Safety Fallback */}
                   <img 
                     src={article.image || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800'}
                     onError={(e) => {
+                      // If the news source blocks the image, use this reliable Unsplash image instead
                       e.target.src = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800';
-                      e.target.onerror = null; // Prevents infinite loop if fallback also fails
+                      e.target.onerror = null; // Prevent infinite loop
                     }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                     alt={article.title}
@@ -233,7 +230,7 @@ function App() {
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
             <OctagonAlert className="mx-auto text-slate-200 mb-4" size={60} />
             <h3 className="text-xl font-bold text-slate-900 mb-2">No News Available</h3>
-            <p className="text-slate-500 text-sm mb-6">Make sure your API key is correctly set in Vercel's Environment Variables.</p>
+            <p className="text-slate-500 text-sm mb-6">Make sure your API key is correctly set.</p>
             <button onClick={() => {setQuery(''); setCategory('general'); setPage(1);}} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all">Reset Filters</button>
           </div>
         )}
