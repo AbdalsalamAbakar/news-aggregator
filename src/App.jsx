@@ -33,11 +33,6 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  /**
-   * IMPROVED FETCH LOGIC
-   * 1. Uses a manual trigger to save API requests.
-   * 2. Checks if we are on localhost vs deployed site for CORS.
-   */
   const fetchNews = useCallback(async (searchQuery = '') => {
     if (!API_KEY) {
       console.warn("API Key missing.");
@@ -49,7 +44,6 @@ function App() {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const BASE_URL = isLocal ? 'https://gnews.io/api/v4' : '/api/news';
       
-      // If we have a searchQuery string, use /search. Otherwise use /top-headlines
       const effectiveQuery = searchQuery || query;
       const endpoint = effectiveQuery.trim() ? '/search' : '/top-headlines';
       
@@ -68,16 +62,12 @@ function App() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       console.error("Fetch Error Details:", error.response?.data?.errors || error.message);
-      if (error.response?.status === 403) {
-        console.error("LIMIT REACHED: You have used your 100 daily requests.");
-      }
       setArticles([]);
     } finally {
       setLoading(false);
     }
-  }, [category, page, API_KEY]); // Dependencies for stable reference
+  }, [category, page, API_KEY]);
 
-  // Only auto-fetch when category or page changes (not while typing)
   useEffect(() => {
     fetchNews();
   }, [category, page, fetchNews]);
@@ -85,12 +75,12 @@ function App() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
-    fetchNews(query); // Manually trigger search only on Enter/Submit
+    fetchNews(query);
   };
 
   const handleCategorySelect = (cat) => {
     setCategory(cat);
-    setQuery(''); // Clear search when switching categories
+    setQuery('');
     setPage(1);
     setMenuOpen(false);
   };
@@ -142,7 +132,7 @@ function App() {
               <Search className="absolute left-2.5 md:left-3.5 top-2 md:top-2.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={14} />
             </form>
 
-            <button onClick={() => setMenuOpen(!menuOpen)} className="mobile-menu-btn hidden p-2 hover:bg-slate-100 rounded-lg transition-colors">
+            <button onClick={() => setMenuOpen(!menuOpen)} className="mobile-menu-btn hidden p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
@@ -153,7 +143,8 @@ function App() {
                 <button 
                   key={cat}
                   onClick={() => handleCategorySelect(cat)}
-                  className={`px-6 h-10 text-[11px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap
+                  /* Added cursor-pointer here */
+                  className={`px-6 h-10 text-[11px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap cursor-pointer
                     ${category === cat && !query ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                   {cat}
@@ -173,7 +164,8 @@ function App() {
                     <button 
                       key={cat}
                       onClick={() => handleCategorySelect(cat)}
-                      className={`px-3 py-2.5 text-xs font-bold uppercase tracking-widest transition-all rounded-lg text-center
+                      /* Added cursor-pointer here */
+                      className={`px-3 py-2.5 text-xs font-bold uppercase tracking-widest transition-all rounded-lg text-center cursor-pointer
                         ${category === cat && !query ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                       {cat}
@@ -226,7 +218,7 @@ function App() {
                   <p className="text-slate-500 text-xs md:text-sm line-clamp-3 mb-6 leading-relaxed">
                     {article.description}
                   </p>
-                  <a href={article.url} target="_blank" rel="noopener noreferrer" className="mt-auto flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white font-bold text-[10px] rounded-xl hover:bg-blue-600 transition-all shadow-sm">
+                  <a href={article.url} target="_blank" rel="noopener noreferrer" className="mt-auto flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white font-bold text-[10px] rounded-xl hover:bg-blue-600 transition-all shadow-sm cursor-pointer">
                     READ ARTICLE <ExternalLink size={12} />
                   </a>
                 </div>
@@ -238,7 +230,7 @@ function App() {
             <OctagonAlert className="mx-auto text-slate-200 mb-4" size={60} />
             <h3 className="text-xl font-bold text-slate-900 mb-2">No News Available</h3>
             <p className="text-slate-500 text-sm mb-6">Check your API daily limit or environment variables.</p>
-            <button onClick={() => {setQuery(''); setCategory('general'); setPage(1);}} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all">Reset Filters</button>
+            <button onClick={() => {setQuery(''); setCategory('general'); setPage(1);}} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all cursor-pointer">Reset Filters</button>
           </div>
         )}
       </main>
